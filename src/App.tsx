@@ -6,16 +6,21 @@ import {
   TransactionResolveResult,
 } from "ckb-gateway";
 import { TransactionCellList } from "./components/TransactionCellList";
-import { RawTransaction } from "@ckb-lumos/base";
 import { LoadingIcon } from "./components/LoadingIcon";
+import { bytes } from "@ckb-lumos/codec";
 
 function App() {
-  const [{ transaction, validateSuccess, loading }, setState] = useSetState({
+  const [
+    { transaction, validateSuccess, loading, messageForSigning, waitingWallet },
+    setState,
+  ] = useSetState({
     hasInitError: false,
     validateSuccess: true,
     signingType: "eth_personal_sign",
     loading: false,
     transaction: null as TransactionResolveResult | null,
+    waitingWallet: false,
+    messageForSigning: "",
   });
 
   const { current: gatewayProvider } = useRef(new WalletGatewayProvider());
@@ -26,7 +31,7 @@ function App() {
       setState({ loading: true });
       gatewayProvider.on(
         "ValidateDone",
-        async ({ success, rawTransaction, signingType }) => {
+        async ({ success, rawTransaction, signingType, messageForSigning }) => {
           const transaction = await resolveRawTransaction(
             rawTransaction,
             import.meta.env.VITE_RPC_URL
@@ -36,6 +41,7 @@ function App() {
             signingType,
             transaction,
             loading: false,
+            messageForSigning: bytes.hexify(messageForSigning),
           });
         }
       );
@@ -48,9 +54,15 @@ function App() {
     };
   }, [gatewayProvider]);
 
-  const signDigest = () => {
-    debugger;
-    gatewayProvider.requestSignDigest();
+  const signDigest = async () => {
+    try {
+      setState({ waitingWallet: true });
+      await gatewayProvider.requestSignDigest();
+    } catch (error) {
+      console.log(error);
+    } finally {
+      setState({ waitingWallet: false });
+    }
   };
 
   if (loading) {
@@ -77,9 +89,20 @@ function App() {
             <b>Transaction Fee</b>
           </div>
           <div></div>
-          <div>{(transaction?.transactionFee.toNumber() || 0) / 1e8}</div>
+          <div>{(transaction?.transactionFee.toNumber() || 0) / 1e8} CKB</div>
         </div>
       </div>
+
+      <div className="mt-4"></div>
+
+      {waitingWallet && (
+        <div className="text-lg text-stone-900 p-8 bg-yellow-200 border border-yellow-400 rounded-md">
+          Please confirm your signing message in wallet is
+          <b>{messageForSigning}</b>
+        </div>
+      )}
+
+      <div className="mt-4"></div>
 
       {validateSuccess ? (
         <button

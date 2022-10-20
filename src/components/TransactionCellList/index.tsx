@@ -2,7 +2,9 @@ import { FC } from "react";
 import { BI } from "@ckb-lumos/bi";
 import { encodeToAddress } from "@ckb-lumos/helpers";
 import { Cell } from "@ckb-lumos/lumos";
-import { getTypeScriptName } from "../../utils";
+import { number } from "@ckb-lumos/codec";
+import { getConfig } from "@ckb-lumos/config-manager";
+import { getLockScriptName, getTypeScriptName } from "../../utils";
 
 type TransactionCellListProps = {
   type: "inputs" | "outputs";
@@ -26,9 +28,20 @@ export const TransactionCellList: FC<TransactionCellListProps> = ({
           <>
             <div className="text-ellipsis overflow-hidden w-120">
               {encodeToAddress(cell.cellOutput.lock)}
+
+              <div className=" border border-lime-500 rounded-md px-2 inline-flex text-sm text-lime-500">
+                {getLockScriptName(cell.cellOutput.lock)}
+              </div>
             </div>
             <div>{getTypeScriptName(cell.cellOutput.type)}</div>
-            <div>{BI.from(cell.cellOutput.capacity).toNumber() / 1e8} CKB</div>
+            {cell.cellOutput.type?.codeHash ===
+            getConfig().SCRIPTS.SUDT?.CODE_HASH ? (
+              <div>{number.Uint128LE.unpack(cell.data).toNumber()} sUDT</div>
+            ) : (
+              <div>
+                {BI.from(cell.cellOutput.capacity).toNumber() / 1e8} CKB
+              </div>
+            )}
           </>
         ))}
       </div>
